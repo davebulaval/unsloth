@@ -135,13 +135,13 @@ For other torch versions, we support `torch211`, `torch212`, `torch220`, `torch2
 For example, if you have `torch 2.4` and `CUDA 12.1`, use:
 ```bash
 pip install --upgrade pip
-pip install "unsloth[cu121-torch240] @ git+https://github.com/unslothai/unsloth.git"
+pip install "unsloth[cu121-torch240] @ git+https://github.com/davebulaval/unsloth.git"
 ```
 
 Another example, if you have `torch 2.5` and `CUDA 12.4`, use:
 ```bash
 pip install --upgrade pip
-pip install "unsloth[cu124-torch250] @ git+https://github.com/unslothai/unsloth.git"
+pip install "unsloth[cu124-torch250] @ git+https://github.com/davebulaval/unsloth.git"
 ```
 
 And other examples:
