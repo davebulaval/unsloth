@@ -110,7 +110,7 @@ conda create --name unsloth_env \
     -y
 conda activate unsloth_env
 
-pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+pip install "unsloth[colab-new] @ git+https://github.com/davebulaval/unsloth.git"
 pip install --no-deps trl peft accelerate bitsandbytes
 ```
 
