@@ -44,8 +44,7 @@ torch_compile_options = {
 }
 
 
-def PatchRL(FastLanguageModel):
-
+def PatchRL(FastLanguageModel, num_logits_to_keep: int):
     from trl.models.utils import unwrap_model_for_generation
     from contextlib import contextmanager
 
@@ -53,7 +52,7 @@ def PatchRL(FastLanguageModel):
     def unsloth_unwrap_model_for_generation(model, *args, **kwargs):
         with unwrap_model_for_generation(model, *args, **kwargs) as unwrapped_model:
             # Put the model in inference mode.
-            FastLanguageModel.for_inference(unwrapped_model)
+            FastLanguageModel.for_inference(unwrapped_model, num_logits_to_keep)
 
             # We must use .clone for Unsloth since we force inference_mode
             # Rather we should have used no_grad
@@ -98,7 +97,6 @@ def PatchRL(FastLanguageModel):
 
 
 pass
-
 
 RLTrainer_replacement = '''
 import os
@@ -239,8 +237,8 @@ def _patch_trl_rl_trainers(trainer_file="grpo_trainer"):
                 continue
             call_args.append(f"{k} = {k}")
         pass
-        arguments = f"\n{' '*8}" + f",\n{' '*8}".join(arguments)
-        call_args = f"\n{' '*12}" + f",\n{' '*12}".join(call_args)
+        arguments = f"\n{' ' * 8}" + f",\n{' ' * 8}".join(arguments)
+        call_args = f"\n{' ' * 12}" + f",\n{' ' * 12}".join(call_args)
         processed.append(
             (
                 arguments,
@@ -255,7 +253,7 @@ def _patch_trl_rl_trainers(trainer_file="grpo_trainer"):
 
     # Add tokenizer if not seen
     if "tokenizer" not in parameters and "processing_class" in parameters:
-        arguments += f",\n{' '*8}tokenizer = None"
+        arguments += f",\n{' ' * 8}tokenizer = None"
         call_args = call_args.replace(
             "processing_class = processing_class",
             "processing_class = tokenizer if tokenizer is not None else processing_class",
@@ -616,9 +614,9 @@ def patch_functions(RLTrainer, trainer_file, RLTrainer_name, all_imports, import
                 + sampling_params
             )  # Add spaces
             new_vllm_part = (
-                f"\n{' '*8}if {args}.use_vllm:\n{sampling_params} "
+                f"\n{' ' * 8}if {args}.use_vllm:\n{sampling_params} "
                 f"if getattr(args, 'sampling_params', None) is None else "
-                f"getattr(args, 'sampling_params', None)\n{' '*8}else:\n"
+                f"getattr(args, 'sampling_params', None)\n{' ' * 8}else:\n"
             )
             init = init.replace(vllm_part, new_vllm_part)
         pass
@@ -727,9 +725,9 @@ def patch_trl_rl_trainers():
 pass
 
 
-def PatchFastRL(algorithm=None, FastLanguageModel=None):
+def PatchFastRL(algorithm=None, FastLanguageModel=None, num_logits_to_keep: int = 1):
     if FastLanguageModel is not None:
-        PatchRL(FastLanguageModel)
+        PatchRL(FastLanguageModel, num_logits_to_keep)
     patch_trl_rl_trainers()
     if type(algorithm) is str and algorithm.islower():
         PatchRLStatistics(algorithm)
