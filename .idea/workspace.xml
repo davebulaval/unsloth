@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="1fb2aa7f-67d5-4ba0-a9ec-b7609f257308" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/unsloth.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/chat_templates.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/chat_templates.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/cross_entropy_loss.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/cross_entropy_loss.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/fast_lora.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/fast_lora.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/geglu.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/geglu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/layernorm.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/layernorm.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/rms_layernorm.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/rms_layernorm.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/rope_embedding.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/rope_embedding.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/swiglu.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/swiglu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/kernels/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/kernels/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/gemma.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/gemma.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/gemma2.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/gemma2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/granite.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/granite.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/llama.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/llama.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/mapper.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/mapper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/mistral.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/mistral.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/rl.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/rl.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/rl_replacements.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/rl_replacements.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/models/vision.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/models/vision.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/save.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/save.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unsloth/tokenizer_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/unsloth/tokenizer_utils.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
+  <component name="ProjectId" id="2tB74nnfmEtD5qL844LvHBOfdCm" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.test.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Merging merge__branch&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/david/Github/unsloth&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="unsloth" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="Remote Python 3.11.2 (sftp://dabea241@132.203.114.183:22/home/dabea241/projects/insurance-llm/.llm_train/bin/python)" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.test" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-PY-243.25659.43" />
+        <option value="bundled-python-sdk-181015f7ab06-4df51de95216-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.25659.43" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="1fb2aa7f-67d5-4ba0-a9ec-b7609f257308" name="Changes" comment="" />
+      <created>1739813424891</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1739813424891</updated>
+      <workItem from="1739813426036" duration="488000" />
+      <workItem from="1739813924119" duration="2007000" />
+      <workItem from="1740224304156" duration="1686000" />
+      <workItem from="1740229611594" duration="1428000" />
+      <workItem from="1740935846303" duration="1116000" />
+      <workItem from="1740949880724" duration="900000" />
+      <workItem from="1741783291507" duration="143000" />
+      <workItem from="1741783468961" duration="102000" />
+      <workItem from="1741914897509" duration="87000" />
+      <workItem from="1741915069013" duration="222000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/unsloth$test.coverage" NAME="test Coverage Results" MODIFIED="1739813691408" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>

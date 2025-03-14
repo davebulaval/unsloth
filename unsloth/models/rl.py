@@ -56,8 +56,7 @@ def vLLMSamplingParams(**kwargs):
 pass
 
 
-def PatchRL(FastLanguageModel):
-
+def PatchRL(FastLanguageModel, num_logits_to_keep: int):
     from trl.models.utils import unwrap_model_for_generation
     from contextlib import contextmanager
 
@@ -65,7 +64,7 @@ def PatchRL(FastLanguageModel):
     def unsloth_unwrap_model_for_generation(model, *args, **kwargs):
         with unwrap_model_for_generation(model, *args, **kwargs) as unwrapped_model:
             # Put the model in inference mode.
-            FastLanguageModel.for_inference(model)
+            FastLanguageModel.for_inference(unwrapped_model, num_logits_to_keep)
 
             # We must use .clone for Unsloth since we force inference_mode
             # Rather we should have used no_grad
@@ -817,9 +816,9 @@ def patch_trl_rl_trainers():
 pass
 
 
-def PatchFastRL(algorithm=None, FastLanguageModel=None):
+def PatchFastRL(algorithm=None, FastLanguageModel=None, num_logits_to_keep: int = 1):
     if FastLanguageModel is not None:
-        PatchRL(FastLanguageModel)
+        PatchRL(FastLanguageModel, num_logits_to_keep)
     patch_trl_rl_trainers()
     if type(algorithm) is str and algorithm.islower():
         PatchRLStatistics(algorithm)
