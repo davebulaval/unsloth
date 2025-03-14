@@ -13,21 +13,20 @@
 # limitations under the License.
 
 import triton
-
-MAX_FUSED_SIZE: int = 65536
+MAX_FUSED_SIZE : int = 65536
 next_power_of_2 = triton.next_power_of_2
 import functools
 
 # torch.cuda.amp.custom_fwd is deprecated >= 2.4
 import torch
+torch_Tensor = torch.Tensor
 from packaging.version import Version
-
 if Version(torch.__version__) < Version("2.4.0"):
     torch_amp_custom_fwd = torch.cuda.amp.custom_fwd
     torch_amp_custom_bwd = torch.cuda.amp.custom_bwd
 else:
-    torch_amp_custom_fwd = torch.amp.custom_fwd(device_type="cuda")
-    torch_amp_custom_bwd = torch.amp.custom_bwd(device_type="cuda")
+    torch_amp_custom_fwd = torch.amp.custom_fwd(device_type = "cuda")
+    torch_amp_custom_bwd = torch.amp.custom_bwd(device_type = "cuda")
 pass
 
 
@@ -35,146 +34,147 @@ pass
 from packaging.version import Version
 import triton
 import triton.language as tl
-
 if Version(triton.__version__) >= Version("3.0.0"):
     from triton.language.extra import libdevice
-
     triton_tanh = libdevice.tanh
     triton_cast = tl.cast
 else:
     triton_tanh = tl.math.tanh
-
     # No casting in old Triton versions
     @triton.jit
     def triton_cast(x, dtype):
         return x.to(dtype)
-
     pass
 pass
 
 
-def calculate_settings(n: int) -> (
-    int,
-    int,
-):
-    BLOCK_SIZE: int = next_power_of_2(n)
+def calculate_settings(n : int) -> (int, int,):
+    BLOCK_SIZE : int = next_power_of_2(n)
     if BLOCK_SIZE > MAX_FUSED_SIZE:
-        raise RuntimeError(
-            f"Cannot launch Triton kernel since n = {n} exceeds "
-            f"the maximum CUDA blocksize = {MAX_FUSED_SIZE}."
-        )
-    num_warps: int = 4
-    if BLOCK_SIZE >= 32768:
-        num_warps = 32
-    elif BLOCK_SIZE >= 8192:
-        num_warps = 16
-    elif BLOCK_SIZE >= 2048:
-        num_warps = 8
+        raise RuntimeError(f"Cannot launch Triton kernel since n = {n} exceeds "\
+                           f"the maximum CUDA blocksize = {MAX_FUSED_SIZE}.")
+    num_warps : int = 4
+    if   BLOCK_SIZE >= 32768: num_warps = 32
+    elif BLOCK_SIZE >=  8192: num_warps = 16
+    elif BLOCK_SIZE >=  2048: num_warps = 8
     return BLOCK_SIZE, num_warps
-
-
 pass
 
 
 import bitsandbytes as bnb
+import ctypes
 
 # https://github.com/bitsandbytes-foundation/bitsandbytes/pull/1330/files
 HAS_CUDA_STREAM = Version(bnb.__version__) > Version("0.43.3")
-global CUDA_STREAM
-CUDA_STREAM = None
 get_ptr = bnb.functional.get_ptr
-import ctypes
 
-ctypes_c_int = ctypes.c_int
-ctypes_c_int32 = ctypes.c_int32
-cdequantize_blockwise_fp32 = bnb.functional.lib.cdequantize_blockwise_fp32
-cdequantize_blockwise_fp16_nf4 = bnb.functional.lib.cdequantize_blockwise_fp16_nf4
-cdequantize_blockwise_bf16_nf4 = bnb.functional.lib.cdequantize_blockwise_bf16_nf4
-cgemm_4bit_inference_naive_fp16 = bnb.functional.lib.cgemm_4bit_inference_naive_fp16
-cgemm_4bit_inference_naive_bf16 = bnb.functional.lib.cgemm_4bit_inference_naive_bf16
-
-
-def QUANT_STATE(W):
-    return getattr(W, "quant_state", None)
-
-
+if torch.cuda.device_count() > 1:
+    torch_cuda_device = torch.cuda.device
+else:
+    from contextlib import nullcontext
+    def torch_cuda_device(device): return nullcontext()
+pass
+_cuda_getCurrentRawStream = torch._C._cuda_getCurrentRawStream
+c_void_p = ctypes.c_void_p
+def _get_tensor_stream(tensor: torch_Tensor) -> c_void_p:
+    return c_void_p(_cuda_getCurrentRawStream(tensor.device.index))
 pass
 
+# Get array of CUDA streams and other buffers
+global CUDA_STREAMS
+global WEIGHT_BUFFERS
+global ABSMAX_BUFFERS
+
+_CUDA_STREAMS = {
+    (index := torch.cuda.device(i).idx) : ctypes.c_void_p(torch._C._cuda_getCurrentRawStream(index))
+    for i in range(torch.cuda.device_count())
+}
+CUDA_STREAMS   = [None] * (max(_CUDA_STREAMS.keys()) + 1)
+WEIGHT_BUFFERS = [None] * (max(_CUDA_STREAMS.keys()) + 1)
+ABSMAX_BUFFERS = [None] * (max(_CUDA_STREAMS.keys()) + 1)
+for k, v in _CUDA_STREAMS.items(): CUDA_STREAMS[k] = v
+CUDA_STREAMS = tuple(CUDA_STREAMS)
+del _CUDA_STREAMS
+
+# Bitsandbytes operations
+ctypes_c_int   = ctypes.c_int
+ctypes_c_int32 = ctypes.c_int32
+cdequantize_blockwise_fp32      = bnb.functional.lib.cdequantize_blockwise_fp32
+cdequantize_blockwise_fp16_nf4  = bnb.functional.lib.cdequantize_blockwise_fp16_nf4
+cdequantize_blockwise_bf16_nf4  = bnb.functional.lib.cdequantize_blockwise_bf16_nf4
+cgemm_4bit_inference_naive_fp16 = bnb.functional.lib.cgemm_4bit_inference_naive_fp16
+cgemm_4bit_inference_naive_bf16 = bnb.functional.lib.cgemm_4bit_inference_naive_bf16
+torch_mm = torch.mm
+torch_mv = torch.mv
+torch_matmul = torch.matmul
+torch_addmm  = torch.addmm
+torch_empty  = torch.empty
+
+def QUANT_STATE(W): return getattr(W, "quant_state", None)
 
 def get_lora_parameters(proj):
     # For DPO or disabled adapters
-    base_layer = proj.base_layer if hasattr(proj, "base_layer") else proj
+    base_layer = getattr(proj, "base_layer", proj) # (proj.base_layer if hasattr(proj, "base_layer") else proj)
     W = base_layer.weight
 
-    if not hasattr(proj, "disable_adapters") or proj.disable_adapters or proj.merged:
-        return W, QUANT_STATE(W), None, None, None
+    # if not hasattr(proj, "disable_adapters") or proj.disable_adapters or proj.merged:
+    if getattr(proj, "disable_adapters", True) or proj.merged:
+        return W, getattr(W, "quant_state", None), None, None, None
     pass
 
-    active_adapter = (
-        proj.active_adapters[0]
-        if hasattr(proj, "active_adapters")
-        else proj.active_adapter
+    adapter = getattr(proj, "active_adapters", None)
+    if adapter is None: adapter = getattr(proj, "active_adapter", ("default"))
+    adapter = adapter[0]
+    
+    return (
+        W,
+        getattr(W, "quant_state", None),
+        proj.lora_A [adapter].weight,
+        proj.lora_B [adapter].weight,
+        proj.scaling[adapter],
     )
-    A = proj.lora_A[active_adapter].weight
-    B = proj.lora_B[active_adapter].weight
-    s = proj.scaling[active_adapter]
-    return W, QUANT_STATE(W), A, B, s
-
-
 pass
 
 
 def get_lora_parameters_bias(proj):
     # For DPO or disabled adapters
-    base_layer = getattr(
-        proj, "base_layer", proj
-    )  # (proj.base_layer if hasattr(proj, "base_layer") else proj)
+    base_layer = getattr(proj, "base_layer", proj) # (proj.base_layer if hasattr(proj, "base_layer") else proj)
     W = base_layer.weight
-    bias = base_layer.bias
 
     # if not hasattr(proj, "disable_adapters") or proj.disable_adapters or proj.merged:
     if getattr(proj, "disable_adapters", True) or proj.merged:
-        return W, QUANT_STATE(W), None, None, None, bias
+        return W, getattr(W, "quant_state", None), None, None, None, base_layer.bias
     pass
 
-    active_adapter = (
-        proj.active_adapters[0]
-        if getattr(
-            proj,
-            "active_adapters",
-        )
-        else proj.active_adapter
+    adapter = getattr(proj, "active_adapters", None)
+    if adapter is None: adapter = getattr(proj, "active_adapter", ("default"))
+    adapter = adapter[0]
+
+    return (
+        W,
+        getattr(W, "quant_state", None),
+        proj.lora_A [adapter].weight,
+        proj.lora_B [adapter].weight,
+        proj.scaling[adapter],
+        base_layer.bias,
     )
-    A = proj.lora_A[active_adapter].weight
-    B = proj.lora_B[active_adapter].weight
-    s = proj.scaling[active_adapter]
-    return W, QUANT_STATE(W), A, B, s, bias
-
-
 pass
 
-global WEIGHT_BUFFER
-WEIGHT_BUFFER = None
-global ABSMAX_BUFFER
-ABSMAX_BUFFER = None
-
 if HAS_CUDA_STREAM:
-
     @torch.inference_mode
-    def fast_dequantize(W, quant_state=None, out=None, use_global_buffer=False):
-        if quant_state is None:
-            return W
+    def fast_dequantize(W, quant_state = None, out = None, use_global_buffer = False):
+        if quant_state is None: return W
         if type(quant_state) is not list:
             # New quant_state as a class
             # https://github.com/TimDettmers/bitsandbytes/pull/763/files
-            absmax = quant_state.absmax
-            shape = quant_state.shape
-            dtype = quant_state.dtype
-            blocksize = quant_state.blocksize
-            offset = quant_state.offset
-            state2 = quant_state.state2
-            absmax2 = state2.absmax
-            code2 = state2.code
+            absmax     = quant_state.absmax
+            shape      = quant_state.shape
+            dtype      = quant_state.dtype
+            blocksize  = quant_state.blocksize
+            offset     = quant_state.offset
+            state2     = quant_state.state2
+            absmax2    = state2.absmax
+            code2      = state2.code
             blocksize2 = state2.blocksize
         else:
             # Old quant_state as a list of lists
@@ -182,9 +182,10 @@ if HAS_CUDA_STREAM:
             offset, state2 = compressed_stats
             absmax2, code2, blocksize2, _, _, _, _ = state2
         pass
-        global CUDA_STREAM
-        if CUDA_STREAM is None:
-            CUDA_STREAM = torch.cuda.current_stream("cuda:0")
+        global CUDA_STREAMS
+        device = W.device
+        device_index = device.index
+        CUDA_STREAM = CUDA_STREAMS[device_index]
 
         n_elements_absmax = absmax.numel()
 
@@ -192,94 +193,63 @@ if HAS_CUDA_STREAM:
         if use_global_buffer:
 
             # Use same buffers for faster inference
-            size = shape[0] * shape[1]
-            global WEIGHT_BUFFER
-            global ABSMAX_BUFFER
+            size = shape[0]*shape[1]
+            global WEIGHT_BUFFERS
+            global ABSMAX_BUFFERS
+            WEIGHT_BUFFER = WEIGHT_BUFFERS[device_index]
+            ABSMAX_BUFFER = ABSMAX_BUFFERS[device_index]
             if WEIGHT_BUFFER is None:
-                WEIGHT_BUFFER = torch.empty(
-                    size, dtype=dtype, device="cuda:0", requires_grad=False
-                )
-                ABSMAX_BUFFER = torch.empty(
-                    n_elements_absmax,
-                    dtype=torch.float32,
-                    device="cuda:0",
-                    requires_grad=False,
-                )
+                WEIGHT_BUFFERS[device_index] = WEIGHT_BUFFER = torch_empty(size, dtype = dtype, device = device, requires_grad = False)
+                ABSMAX_BUFFERS[device_index] = ABSMAX_BUFFER = torch_empty(n_elements_absmax, dtype = torch.float32, device = device, requires_grad = False)
 
-            if size > WEIGHT_BUFFER.numel():
-                WEIGHT_BUFFER.resize_(size)
-            if n_elements_absmax > ABSMAX_BUFFER.numel():
-                ABSMAX_BUFFER.resize_(n_elements_absmax)
+            if size > WEIGHT_BUFFER.numel(): WEIGHT_BUFFER.resize_(size)
+            if n_elements_absmax > ABSMAX_BUFFER.numel(): ABSMAX_BUFFER.resize_(n_elements_absmax)
 
             out = WEIGHT_BUFFER[:size].view(shape)
             out_absmax = ABSMAX_BUFFER[:n_elements_absmax]
         else:
             if out is None:
-                out = torch.empty(
-                    shape, dtype=dtype, device="cuda:0", requires_grad=False
-                )
+                out = torch_empty(shape, dtype = dtype, device = device, requires_grad = False)
             else:
-                assert out.shape == shape
-                assert out.dtype == dtype
-            out_absmax = torch.empty(
-                n_elements_absmax,
-                dtype=torch.float32,
-                device="cuda:0",
-                requires_grad=False,
-            )
+                assert(out.shape == shape)
+                assert(out.dtype == dtype)
+            out_absmax = torch_empty(n_elements_absmax, dtype = torch.float32, device = device, requires_grad = False)
         pass
 
         # NF4 dequantization of statistics
         ptr_out_absmax = get_ptr(out_absmax)
-        cdequantize_blockwise_fp32(
-            get_ptr(code2),
-            get_ptr(absmax),
-            get_ptr(absmax2),
-            ptr_out_absmax,
-            ctypes_c_int(blocksize2),
-            ctypes_c_int(n_elements_absmax),
-            CUDA_STREAM,
-        )
-        out_absmax += offset
+        with torch_cuda_device(device):
+            cdequantize_blockwise_fp32(
+                get_ptr(code2), get_ptr(absmax), get_ptr(absmax2), ptr_out_absmax,
+                ctypes_c_int(blocksize2), ctypes_c_int(n_elements_absmax), CUDA_STREAM
+            )
+            out_absmax += offset
 
-        # Dequantize W
-        fx = (
-            cdequantize_blockwise_fp16_nf4
-            if dtype == torch.float16
-            else cdequantize_blockwise_bf16_nf4
-        )
-        fx(
-            get_ptr(None),
-            get_ptr(W),
-            ptr_out_absmax,
-            get_ptr(out),
-            ctypes_c_int(blocksize),
-            ctypes_c_int(out.numel()),
-            CUDA_STREAM,
-        )
-
+            # Dequantize W
+            fx = cdequantize_blockwise_fp16_nf4 if dtype == torch.float16 else \
+                 cdequantize_blockwise_bf16_nf4
+            fx(get_ptr(None), get_ptr(W), ptr_out_absmax, get_ptr(out),
+               ctypes_c_int(blocksize), ctypes_c_int(out.numel()), CUDA_STREAM,)
+        pass
         # Careful returning transposed data
-        is_transposed = True if W.shape[0] == 1 else False
+        is_transposed = (True if W.shape[0] == 1 else False)
         return out.t() if is_transposed else out
-
     pass
 else:
-
     @torch.inference_mode
-    def fast_dequantize(W, quant_state=None, out=None, use_global_buffer=False):
-        if quant_state is None:
-            return W
+    def fast_dequantize(W, quant_state = None, out = None, use_global_buffer = False):
+        if quant_state is None: return W
         if type(quant_state) is not list:
             # New quant_state as a class
             # https://github.com/TimDettmers/bitsandbytes/pull/763/files
-            absmax = quant_state.absmax
-            shape = quant_state.shape
-            dtype = quant_state.dtype
-            blocksize = quant_state.blocksize
-            offset = quant_state.offset
-            state2 = quant_state.state2
-            absmax2 = state2.absmax
-            code2 = state2.code
+            absmax     = quant_state.absmax
+            shape      = quant_state.shape
+            dtype      = quant_state.dtype
+            blocksize  = quant_state.blocksize
+            offset     = quant_state.offset
+            state2     = quant_state.state2
+            absmax2    = state2.absmax
+            code2      = state2.code
             blocksize2 = state2.blocksize
         else:
             # Old quant_state as a list of lists
@@ -289,84 +259,39 @@ else:
         pass
 
         n_elements_absmax = absmax.numel()
+        device = W.device
 
         # Create weight matrix
-        if use_global_buffer:
-
-            # Use same buffers for faster inference
-            size = shape[0] * shape[1]
-            global WEIGHT_BUFFER
-            global ABSMAX_BUFFER
-            if WEIGHT_BUFFER is None:
-                WEIGHT_BUFFER = torch.empty(
-                    size, dtype=dtype, device="cuda:0", requires_grad=False
-                )
-                ABSMAX_BUFFER = torch.empty(
-                    n_elements_absmax, dtype=dtype, device="cuda:0", requires_grad=False
-                )
-
-            if size > WEIGHT_BUFFER.numel():
-                WEIGHT_BUFFER.resize_(size)
-            if n_elements_absmax > ABSMAX_BUFFER.numel():
-                ABSMAX_BUFFER.resize_(n_elements_absmax)
-
-            out = WEIGHT_BUFFER[:size].view(shape)
-            out_absmax = ABSMAX_BUFFER[:n_elements_absmax]
+        if out is None:
+            out = torch_empty(shape, dtype = dtype, device = device, requires_grad = False)
         else:
-            if out is None:
-                out = torch.empty(
-                    shape, dtype=dtype, device="cuda:0", requires_grad=False
-                )
-            else:
-                assert out.shape == shape
-                assert out.dtype == dtype
-            out_absmax = torch.empty(
-                n_elements_absmax,
-                dtype=torch.float32,
-                device="cuda:0",
-                requires_grad=False,
-            )
-        pass
+            assert(out.shape == shape)
+            assert(out.dtype == dtype)
+        out_absmax = torch_empty(n_elements_absmax, dtype = torch.float32, device = device, requires_grad = False)
 
         # Do dequantization
         ptr_out_absmax = get_ptr(out_absmax)
         cdequantize_blockwise_fp32(
-            get_ptr(code2),
-            get_ptr(absmax),
-            get_ptr(absmax2),
-            ptr_out_absmax,
-            ctypes_c_int(blocksize2),
-            ctypes_c_int(n_elements_absmax),
+            get_ptr(code2), get_ptr(absmax), get_ptr(absmax2), ptr_out_absmax,
+            ctypes_c_int(blocksize2), ctypes_c_int(n_elements_absmax),
         )
         out_absmax += offset
 
-        fx = (
-            cdequantize_blockwise_fp16_nf4
-            if dtype == torch.float16
-            else cdequantize_blockwise_bf16_nf4
-        )
-        fx(
-            get_ptr(None),
-            get_ptr(W),
-            ptr_out_absmax,
-            get_ptr(out),
-            ctypes_c_int(blocksize),
-            ctypes_c_int(out.numel()),
-        )
+        fx = cdequantize_blockwise_fp16_nf4 if dtype == torch.float16 else \
+             cdequantize_blockwise_bf16_nf4
+        fx(get_ptr(None), get_ptr(W), ptr_out_absmax, get_ptr(out),
+           ctypes_c_int(blocksize), ctypes_c_int(out.numel()),)
 
         # Careful returning transposed data
-        is_transposed = True if W.shape[0] == 1 else False
+        is_transposed = (True if W.shape[0] == 1 else False)
         return out.t() if is_transposed else out
-
     pass
 pass
 
 
 if HAS_CUDA_STREAM:
-
-    def fast_gemv(X, W, quant_state, out=None):
-        if quant_state is None:
-            return torch.matmul(X, W, out=out)
+    def fast_gemv(X, W, quant_state, out = None):
+        if quant_state is None: return torch_matmul(X, W, out = out)
         # For fast X @ W where seq_len == 1
         # From https://github.com/TimDettmers/bitsandbytes/blob/main/bitsandbytes/functional.py#L1469
         _, q_len, hd = X.shape
@@ -374,40 +299,31 @@ if HAS_CUDA_STREAM:
 
         if type(quant_state) is not list:
             # https://github.com/TimDettmers/bitsandbytes/pull/763/files
-            absmax = quant_state.absmax
-            shape = quant_state.shape
-            dtype = quant_state.dtype
-            blocksize = quant_state.blocksize
-            stats = quant_state.code
-            offset = quant_state.offset
-            state2 = quant_state.state2
-            absmax2 = state2.absmax
-            code2 = state2.code
+            absmax     = quant_state.absmax
+            shape      = quant_state.shape
+            dtype      = quant_state.dtype
+            blocksize  = quant_state.blocksize
+            stats      = quant_state.code
+            offset     = quant_state.offset
+            state2     = quant_state.state2
+            absmax2    = state2.absmax
+            code2      = state2.code
             blocksize2 = state2.blocksize
         else:
-            absmax, shape, dtype, blocksize, compressed_stats, quant_type, stats = (
-                quant_state
-            )
+            absmax, shape, dtype, blocksize, compressed_stats, quant_type, stats = quant_state
             offset, state2 = compressed_stats
             absmax2, code2, blocksize2, _, _, _, _ = state2
         pass
-        global CUDA_STREAM
-        if CUDA_STREAM is None:
-            CUDA_STREAM = torch.cuda.current_stream("cuda:0")
-
+        global CUDA_STREAMS
+        device = W.device
+        device_index = device.index
+        CUDA_STREAM = CUDA_STREAMS[device_index]
+        
         # assert(dtype == X.dtype)
         bout = shape[0]
 
         if out is None:
-            out = torch.empty(
-                (
-                    1,
-                    1,
-                    bout,
-                ),
-                dtype=dtype,
-                device="cuda:0",
-            )
+            out = torch_empty((1, 1, bout,), dtype = dtype, device = device)
         # else:
         #     assert(out.shape == (1, 1, bout,))
         # pass
@@ -417,7 +333,7 @@ if HAS_CUDA_STREAM:
         k = shape[1]
         lda = shape[0]
         ldc = shape[0]
-        ldb = (hd + 1) // 2
+        ldb = (hd+1)//2
         m = ctypes_c_int32(m)
         n = ctypes_c_int32(n)
         k = ctypes_c_int32(k)
@@ -425,50 +341,28 @@ if HAS_CUDA_STREAM:
         ldb = ctypes_c_int32(ldb)
         ldc = ctypes_c_int32(ldc)
 
-        df = torch.empty(absmax.shape, dtype=torch.float32, device="cuda:0")
-        cdequantize_blockwise_fp32(
-            get_ptr(code2),
-            get_ptr(absmax),
-            get_ptr(absmax2),
-            get_ptr(df),
-            ctypes_c_int(blocksize2),
-            ctypes_c_int(df.numel()),
-            CUDA_STREAM,
-        )
-        df += offset
-        absmax = df
+        df = torch_empty(absmax.shape, dtype = torch.float32, device = device)
+        with torch_cuda_device(device):
+            cdequantize_blockwise_fp32(
+                get_ptr(code2), get_ptr(absmax), get_ptr(absmax2), get_ptr(df),
+                ctypes_c_int(blocksize2), ctypes_c_int(df.numel()), CUDA_STREAM,
+            )
+            df += offset
+            absmax = df
 
-        fx = (
-            cgemm_4bit_inference_naive_fp16
-            if dtype == torch.float16
-            else cgemm_4bit_inference_naive_bf16
-        )
+            fx = cgemm_4bit_inference_naive_fp16 if dtype == torch.float16 else \
+                cgemm_4bit_inference_naive_bf16
 
-        blocksize = ctypes_c_int32(blocksize)
-        fx(
-            m,
-            n,
-            k,
-            get_ptr(X),
-            get_ptr(W),
-            get_ptr(absmax),
-            get_ptr(stats),
-            get_ptr(out),
-            lda,
-            ldb,
-            ldc,
-            blocksize,
-            CUDA_STREAM,
-        )
+            blocksize = ctypes_c_int32(blocksize)
+            fx(m, n, k, get_ptr(X), get_ptr(W), get_ptr(absmax), get_ptr(stats), get_ptr(out),
+               lda, ldb, ldc, blocksize, CUDA_STREAM,)
+        pass
 
         return out
-
     pass
 else:
-
-    def fast_gemv(X, W, quant_state, out=None):
-        if quant_state is None:
-            return torch.matmul(X, W, out=out)
+    def fast_gemv(X, W, quant_state, out = None):
+        if quant_state is None: return torch.matmul(X, W, out = out)
         # For fast X @ W where seq_len == 1
         # From https://github.com/TimDettmers/bitsandbytes/blob/main/bitsandbytes/functional.py#L1469
         _, q_len, hd = X.shape
@@ -476,36 +370,27 @@ else:
 
         if type(quant_state) is not list:
             # https://github.com/TimDettmers/bitsandbytes/pull/763/files
-            absmax = quant_state.absmax
-            shape = quant_state.shape
-            dtype = quant_state.dtype
-            blocksize = quant_state.blocksize
-            stats = quant_state.code
-            offset = quant_state.offset
-            state2 = quant_state.state2
-            absmax2 = state2.absmax
-            code2 = state2.code
+            absmax     = quant_state.absmax
+            shape      = quant_state.shape
+            dtype      = quant_state.dtype
+            blocksize  = quant_state.blocksize
+            stats      = quant_state.code
+            offset     = quant_state.offset
+            state2     = quant_state.state2
+            absmax2    = state2.absmax
+            code2      = state2.code
             blocksize2 = state2.blocksize
         else:
-            absmax, shape, dtype, blocksize, compressed_stats, quant_type, stats = (
-                quant_state
-            )
+            absmax, shape, dtype, blocksize, compressed_stats, quant_type, stats = quant_state
             offset, state2 = compressed_stats
             absmax2, code2, blocksize2, _, _, _, _ = state2
         pass
         # assert(dtype == X.dtype)
         bout = shape[0]
+        device = W.device
 
         if out is None:
-            out = torch.empty(
-                (
-                    1,
-                    1,
-                    bout,
-                ),
-                dtype=dtype,
-                device="cuda:0",
-            )
+            out = torch_empty((1, 1, bout,), dtype = dtype, device = device)
         # else:
         #     assert(out.shape == (1, 1, bout,))
         # pass
@@ -515,7 +400,7 @@ else:
         k = shape[1]
         lda = shape[0]
         ldc = shape[0]
-        ldb = (hd + 1) // 2
+        ldb = (hd+1)//2
         m = ctypes_c_int32(m)
         n = ctypes_c_int32(n)
         k = ctypes_c_int32(k)
@@ -523,65 +408,39 @@ else:
         ldb = ctypes_c_int32(ldb)
         ldc = ctypes_c_int32(ldc)
 
-        df = torch.empty(absmax.shape, dtype=torch.float32, device="cuda:0")
+        df = torch_empty(absmax.shape, dtype = torch.float32, device = device)
         cdequantize_blockwise_fp32(
-            get_ptr(code2),
-            get_ptr(absmax),
-            get_ptr(absmax2),
-            get_ptr(df),
-            ctypes_c_int(blocksize2),
-            ctypes_c_int(df.numel()),
+            get_ptr(code2), get_ptr(absmax), get_ptr(absmax2), get_ptr(df),
+            ctypes_c_int(blocksize2), ctypes_c_int(df.numel()),
         )
         df += offset
         absmax = df
 
-        fx = (
-            cgemm_4bit_inference_naive_fp16
-            if dtype == torch.float16
-            else cgemm_4bit_inference_naive_bf16
-        )
+        fx = cgemm_4bit_inference_naive_fp16 if dtype == torch.float16 else \
+            cgemm_4bit_inference_naive_bf16
 
         blocksize = ctypes_c_int32(blocksize)
-        fx(
-            m,
-            n,
-            k,
-            get_ptr(X),
-            get_ptr(W),
-            get_ptr(absmax),
-            get_ptr(stats),
-            get_ptr(out),
-            lda,
-            ldb,
-            ldc,
-            blocksize,
-        )
+        fx(m, n, k, get_ptr(X), get_ptr(W), get_ptr(absmax), get_ptr(stats), get_ptr(out),
+           lda, ldb, ldc, blocksize,)
 
         return out
-
     pass
 pass
 
 
-torch_mm = torch.mm
-torch_mv = torch.mv
-torch_matmul = torch.matmul
-
-
-def fast_linear_forward(proj, X, temp_lora=None, out=None):
+def fast_linear_forward(proj, X, temp_lora = None, out = None):
 
     W, W_quant, lora_A, lora_B, lora_S, bias = get_lora_parameters_bias(proj)
     bsz, q_len, in_dim = X.shape
-    if q_len != 1:
-        return matmul_lora(X, W, W_quant, lora_A, lora_B, lora_S)
+    if q_len != 1: return matmul_lora(X, W, W_quant, lora_A, lora_B, lora_S)
 
     if W_quant is None:
-        out = torch_matmul(X, W.t(), out=out)
+        out = torch_matmul(X, W.t(), out = out)
     elif bsz == 1 and q_len == 1:
-        out = fast_gemv(X, W, W_quant, out=out)
+        out = fast_gemv(X, W, W_quant, out = out)
     else:
-        W = fast_dequantize(W.t(), W_quant, use_global_buffer=True)
-        out = torch_matmul(X, W, out=out)
+        W = fast_dequantize(W.t(), W_quant, use_global_buffer = True)
+        out = torch_matmul(X, W, out = out)
     pass
 
     # Add in LoRA weights
@@ -593,33 +452,28 @@ def fast_linear_forward(proj, X, temp_lora=None, out=None):
             lora_A._fast_lora = lora_A.to(dtype)
             lora_B._fast_lora = lora_B.to(dtype)
         pass
-
+        
         if bsz == 1:
             out = out.view(out_dim)
-            temp_lora = torch_mv(lora_A._fast_lora, X.ravel(), out=temp_lora)
-            out.addmv_(lora_B._fast_lora, temp_lora, alpha=lora_S)
+            temp_lora = torch_mv(lora_A._fast_lora, X.ravel(), out = temp_lora)
+            out.addmv_(lora_B._fast_lora, temp_lora, alpha = lora_S)
         else:
             out = out.view(bsz, out_dim)
-            temp_lora = torch_mm(
-                X.view(bsz, in_dim), lora_A._fast_lora.t(), out=temp_lora
-            )
-            out.addmm_(temp_lora, lora_B._fast_lora.t(), alpha=lora_S)
+            temp_lora = torch_mm(X.view(bsz, in_dim), lora_A._fast_lora.t(), out = temp_lora)
+            out.addmm_(temp_lora, lora_B._fast_lora.t(), alpha = lora_S)
         pass
         out = out.view(bsz, 1, out_dim)
     pass
 
-    if bias is not None:
-        out += bias
+    if bias is not None: out += bias
 
     return out
-
-
 pass
 
 
-def matmul_lora(X, W, W_quant, A, B, s, out=None):
+def matmul_lora(X, W, W_quant, A, B, s, out = None):
     dtype = X.dtype
-    W = fast_dequantize(W.t(), W_quant, use_global_buffer=True)
+    W = fast_dequantize(W.t(), W_quant, use_global_buffer = True)
 
     if X.dim() == 3:
         batch, seq_len, d = X.shape
@@ -628,18 +482,16 @@ def matmul_lora(X, W, W_quant, A, B, s, out=None):
     else:
         reshape = False
     pass
-
-    out = torch_matmul(X, W, out=out)
-    if W_quant is not None:
-        del W
+    out = torch_matmul(X, W, out = out)
+    if W_quant is not None: del W
 
     if A is not None:
         # LoRA is enabled
         A, B = A.t(), B.t()
-        out += (X @ A.to(dtype)) @ (s * B.to(dtype))
+        XA = torch_matmul(X, A.to(dtype))
+        out.addmm_(XA, B.to(dtype), alpha = s)
+        # out += (X @ A.to(dtype)) @ (s * B.to(dtype))
     pass
-
+    
     return out.view(batch, seq_len, -1) if reshape else out
-
-
 pass
